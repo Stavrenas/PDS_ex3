@@ -9,4 +9,12 @@ bool isPowerOfTwo(int n);
 
 int *readCSV(int *n, char *file);
 
-#endif 
+double *normalizeImage(int *image, int size);
+
+double *addNoiseToImage(double *image, int size);
+
+void writeToCSV(double* image, int size, char* name);
+
+double findMax(double * array, int size );
+
+#endif
