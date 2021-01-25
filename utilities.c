@@ -186,7 +186,7 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
                 double gaussianEffect = gaussian(sigma, distance);
                 result = (patch1[patchIterator] - patch2[patchIterator]) * (patch1[patchIterator] - patch2[patchIterator]) * gaussianEffect;
                 //printf("Between %f and %f : result is %f, gauss is %f\n", patch1[patchIterator], patch2[patchIterator], result, gaussianEffect);
-                sum += sqrt(result);
+                sum += result;
                 gauss += gaussianEffect;
             }
         }
@@ -206,11 +206,4 @@ void printPatch(double *patch, int patchSize)
         }
         printf("\n");
     }
-}
-
-double * denoiseImage(double* image, int size, int patchSize, double sigma){
-
-
-
-
 }
