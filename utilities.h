@@ -17,4 +17,12 @@ void writeToCSV(double* image, int size, char* name);
 
 double findMax(double * array, int size );
 
+double **createPatches(double *image, int size, int patchSize);
+
+double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double sigma);
+
+void printPatch(double *patch, int patchSize);
+
+double * denoiseImage(double* image, int size, int patchSize, double sigma);
+
 #endif
