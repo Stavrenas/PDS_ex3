@@ -151,7 +151,7 @@ double **createPatches(double *image, int size, int patchSize)
                 {
                     patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
                     imageIterator = (i + k) * size + (j + m);
-                    patch[patchIterator] = -1;
+                    patch[patchIterator] = -1; 
 
                     if (imageIterator >= 0 && imageIterator < size * size) //filter out of image pixels
                     {
@@ -180,7 +180,7 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
         for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
         {
             int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
-            if (patch1[patchIterator] + patch2[patchIterator] != -2)
+            if (patch1[patchIterator]!=-1 && patch2[patchIterator]!=-1)
             {                                 //this means out of bounds
                 int distance = m * m + k * k; //distance from centre pixel
                 double gaussianEffect = gaussian(sigma, distance);
@@ -212,5 +212,5 @@ double * denoiseImage(double* image, int size, int patchSize, double sigma){
 
 
 
-    
+
 }
