@@ -48,7 +48,7 @@ int main(int argc, char **argv[])
     int size; //size represents the dimentsions of a **SQUARE** image in pixels //
     char *file = (char *)malloc(20 * sizeof(char));
     char *name = (char *)malloc(20 * sizeof(char));
-    name = "image3";
+    name = "image2";
     sprintf(file, "%s.csv", name);
     int *image = readCSV(&size, file);
     printf("size is %d\n", size);
@@ -64,8 +64,8 @@ int main(int argc, char **argv[])
     writeToCSV(noisy, size, noisyName);
 
     int patchSize = 3;
-    double sigmaDist = 0.5; //for 3x3 best is 0.5
-    double sigmaGauss = 1.66;
+    double sigmaDist = 0.055; //for 3x3 best is 0.055, for for 5x5 best is 0.055
+    double sigmaGauss = 3;
     struct timeval tStart;
 	tStart = tic();
     double *denoised = denoiseImage(noisy, size, patchSize, sigmaDist, sigmaGauss); //remove noise from the image//

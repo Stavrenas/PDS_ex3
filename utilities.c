@@ -46,7 +46,6 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
     while (error)
     {
         error = fscanf(matFile, "%d,", &array[pixels - 1]);
-        //printf("error is %d\n", error);
         if (error != 1)
         {
             printf("finished reading\n");
@@ -55,11 +54,7 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
             return array;
         }
         pixels++;
-        //printf("size is %d\n", size);
-        if (isPowerOfTwo(pixels))
-        {
-            array = realloc(array, pixels * 2 * sizeof(int));
-        }
+        array = realloc(array, pixels * sizeof(int));
     }
     *n = sqrt(pixels);
 
@@ -135,7 +130,7 @@ double **createPatches(double *image, int size, int patchSize)
     //We assume that patchSize is an odd number//
     //In order to create the patches we must consider that the pixels are stored in Row-Major format//
     //A simple aproach is to handle the patches also in the same format//
-    int patchLimit = patchSize / 2;
+    int patchLimit = (patchSize-1) / 2;
     int patchIterator, imageIterator;
     double **patches = (double **)malloc(size * size * sizeof(double *));
 
@@ -174,7 +169,7 @@ double **createPatches(double *image, int size, int patchSize)
 double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double sigma)
 {
 
-    int patchLimit = patchSize / 2;
+    int patchLimit = (patchSize-1) / 2;
     double sum, result, gauss = 0;
     sum = 0;
     double *gaussianWeights = (double *)malloc((patchSize + patchLimit) * sizeof(double));
@@ -225,6 +220,8 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
     double **distances = (double **)malloc(totalPixels * sizeof(double *));
     patches = createPatches(image, size, patchSize);
 
+    printf("Finished allocating memory");
+
     for (int i = 0; i < totalPixels; i++)
     {
         double normalFactor = 0;
@@ -251,6 +248,12 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
             denoisedImage[i] += distances[i][j] * image[j];
     }
     printf("Finished denoising \n");
+    for (int i = 0; i < totalPixels; i++){
+        free(patches[i]);
+        free(distances[i]);
+    }
+    free(patches);
+    free(distances);
     return denoisedImage;
 }
 
