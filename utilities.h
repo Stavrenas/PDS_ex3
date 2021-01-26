@@ -23,7 +23,7 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
 
 void printPatch(double *patch, int patchSize);
 
-double *denoiseImage(double *image, int size, int patchSize, double sigma);
+double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, double sigmaGauss);
 
 double * findRemoved(double * noisy, double *denoised, int size);
 

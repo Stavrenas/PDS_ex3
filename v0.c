@@ -35,8 +35,6 @@ double toc(struct timeval begin)
 
 */
 
-double *denoiseImage(double *image, int size, int patchSize, double sigma);
-
 int main(int argc, char **argv[])
 {
     // int patchSize = 5;
@@ -66,11 +64,11 @@ int main(int argc, char **argv[])
     writeToCSV(noisy, size, noisyName);
 
     int patchSize = 3;
-    double sigma = 0.5; //for 3x3 best is 0.5
-
+    double sigmaDist = 0.5; //for 3x3 best is 0.5
+    double sigmaGauss = 1.66;
     struct timeval tStart;
 	tStart = tic();
-    double *denoised = denoiseImage(noisy, size, patchSize, sigma); //remove noise from the image//
+    double *denoised = denoiseImage(noisy, size, patchSize, sigmaDist, sigmaGauss); //remove noise from the image//
     char *denoisedName = (char *)malloc(20 * sizeof(char));
     sprintf(denoisedName, "%s_denoised", name);
     writeToCSV(denoised, size, denoisedName);

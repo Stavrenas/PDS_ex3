@@ -218,7 +218,7 @@ void printPatch(double *patch, int patchSize)
     }
 }
 
-double *denoiseImage(double *image, int size, int patchSize, double sigma)
+double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, double sigmaGauss)
 {
     int totalPixels = size * size;
     double **patches = (double **)malloc(totalPixels * sizeof(double *));
@@ -232,9 +232,9 @@ double *denoiseImage(double *image, int size, int patchSize, double sigma)
 
         for (int j = 0; j < totalPixels; j++)
         {
-            double dist = calculateGaussianDistance(patches[i], patches[j], patchSize, sigma); //calculate distances from each patch with gaussian weights
+            double dist = calculateGaussianDistance(patches[i], patches[j], patchSize, sigmaGauss); //calculate distances from each patch with gaussian weights
             //printf("i is %d, j is %d, dist is %f \n\n", i, j, dist);
-            distances[i][j] = exp(-dist / (sigma * sigma));
+            distances[i][j] = exp(-dist / (sigmaDist * sigmaDist));
             normalFactor += distances[i][j]; //calculate factor to normalize distances ~ Z[i]
         }
         //printf("NormalFactor: %f\n", normalFactor);
