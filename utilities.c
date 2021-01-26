@@ -146,15 +146,13 @@ double **createPatches(double *image, int size, int patchSize)
     return patches;
 }
 
-double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double sigma)
+double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double * gaussianWeights)
 {
 
     int patchLimit = (patchSize-1) / 2;
     double sum, result, gauss = 0;
     sum = 0;
-    double *gaussianWeights = (double *)malloc((patchSize + patchLimit) * sizeof(double));
-    for (int i = 0; i < patchSize + patchLimit; i++)
-        gaussianWeights[i] = gaussian(sigma, i);
+
 
     for (int k = -patchLimit; k <= patchLimit; k++)
     {
@@ -173,7 +171,7 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
         }
     }
     //printf("Sum is %f\n", sum);
-    free(gaussianWeights);
+    //free(gaussianWeights);
     return sum;
 }
 
@@ -195,10 +193,16 @@ void printPatch(double *patch, int patchSize)
 
 double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, double sigmaGauss)
 {
+
     int totalPixels = size * size;
+    int patchLimit = (patchSize-1) / 2;
     double **patches = (double **)malloc(totalPixels * sizeof(double *));
     double **distances = (double **)malloc(totalPixels * sizeof(double *));
     patches = createPatches(image, size, patchSize);
+
+    double *gaussianWeights = (double *)malloc((patchSize + patchLimit) * sizeof(double));
+    for (int i = 0; i < patchSize + patchLimit; i++)
+        gaussianWeights[i] = gaussian(sigmaGauss, i);
 
     printf("Finished allocating memory");
 
@@ -209,7 +213,7 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
 
         for (int j = 0; j < totalPixels; j++)
         {
-            double dist = calculateGaussianDistance(patches[i], patches[j], patchSize, sigmaGauss); //calculate distances from each patch with gaussian weights
+            double dist = calculateGaussianDistance(patches[i], patches[j], patchSize, gaussianWeights); //calculate distances from each patch with gaussian weights
             //printf("i is %d, j is %d, dist is %f \n\n", i, j, dist);
             distances[i][j] = exp(-dist / (sigmaDist * sigmaDist));
             normalFactor += distances[i][j]; //calculate factor to normalize distances ~ Z[i]
