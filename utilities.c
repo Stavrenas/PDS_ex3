@@ -10,7 +10,6 @@ double gaussian(double sigma, double x)
     return (1 / (sigma * sqrt(2 * M_PI))) * exp(-x * x / (2 * sigma * sigma));
 }
 
-
 int *readCSV(int *n, char *file) //n represents total number of pixels
 {
     FILE *matFile;
@@ -44,7 +43,7 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
 }
 
 double *normalizeImage(int *image, int size) //size represents the dimension
-{ 
+{
     int max = 0;
     for (int i = 0; i < size * size; i++)
     {
@@ -69,7 +68,7 @@ double *addNoiseToImage(double *image, int size)
     for (int i = 0; i < size * size; i++)
     {
         random_value = ((double)rand() / RAND_MAX * 20 - 10);
-        effect = gaussian(2, random_value) - 0.05;  
+        effect = gaussian(2, random_value) - 0.05;
         noisy[i] = (effect + 1) * image[i]; //add gaussian noise
         if (noisy[i] < 0)
             noisy[i] = 0;
@@ -111,7 +110,7 @@ double **createPatches(double *image, int size, int patchSize)
     //We assume that patchSize is an odd number//
     //In order to create the patches we must consider that the pixels are stored in Row-Major format//
     //A simple aproach is to handle the patches also in the same format//
-    int patchLimit = (patchSize-1) / 2;
+    int patchLimit = (patchSize - 1) / 2;
     int patchIterator, imageIterator;
     double **patches = (double **)malloc(size * size * sizeof(double *));
 
@@ -146,13 +145,12 @@ double **createPatches(double *image, int size, int patchSize)
     return patches;
 }
 
-double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double * gaussianWeights)
+double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double *gaussianWeights)
 {
 
-    int patchLimit = (patchSize-1) / 2;
+    int patchLimit = (patchSize - 1) / 2;
     double sum, result, gauss = 0;
     sum = 0;
-
 
     for (int k = -patchLimit; k <= patchLimit; k++)
     {
@@ -166,12 +164,10 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
                 result = (patch1[patchIterator] - patch2[patchIterator]) * (patch1[patchIterator] - patch2[patchIterator]) * gaussianEffect;
                 //printf("Between %f and %f : result is %f, distance is %d, gauss is %f, sum is %f\n", patch1[patchIterator], patch2[patchIterator], result,distance, gaussianEffect, sum);
                 sum += result;
-                //gauss += gaussianEffect;
             }
         }
     }
-    //printf("Sum is %f\n", sum);
-    //free(gaussianWeights);
+
     return sum;
 }
 
@@ -195,16 +191,14 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
 {
 
     int totalPixels = size * size;
-    int patchLimit = (patchSize-1) / 2;
+    int patchLimit = (patchSize - 1) / 2;
     double **patches = (double **)malloc(totalPixels * sizeof(double *));
     double **distances = (double **)malloc(totalPixels * sizeof(double *));
+    double *gaussianWeights = (double *)malloc((patchSize + patchLimit) * sizeof(double));
     patches = createPatches(image, size, patchSize);
 
-    double *gaussianWeights = (double *)malloc((patchSize + patchLimit) * sizeof(double));
     for (int i = 0; i < patchSize + patchLimit; i++)
         gaussianWeights[i] = gaussian(sigmaGauss, i);
-
-    printf("Finished allocating memory");
 
     for (int i = 0; i < totalPixels; i++)
     {
@@ -214,11 +208,9 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
         for (int j = 0; j < totalPixels; j++)
         {
             double dist = calculateGaussianDistance(patches[i], patches[j], patchSize, gaussianWeights); //calculate distances from each patch with gaussian weights
-            //printf("i is %d, j is %d, dist is %f \n\n", i, j, dist);
             distances[i][j] = exp(-dist / (sigmaDist * sigmaDist));
             normalFactor += distances[i][j]; //calculate factor to normalize distances ~ Z[i]
         }
-        //printf("NormalFactor: %f\n", normalFactor);
 
         for (int j = 0; j < totalPixels; j++)
             distances[i][j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
@@ -232,7 +224,8 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
             denoisedImage[i] += distances[i][j] * image[j];
     }
     printf("Finished denoising \n");
-    for (int i = 0; i < totalPixels; i++){
+    for (int i = 0; i < totalPixels; i++)
+    {
         free(patches[i]);
         free(distances[i]);
     }
