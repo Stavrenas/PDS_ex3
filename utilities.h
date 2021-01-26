@@ -3,10 +3,6 @@
 
 double gaussian(double sigma, double x);
 
-double *gaussianWeight(int patchSize);
-
-bool isPowerOfTwo(int n);
-
 int *readCSV(int *n, char *file);
 
 double *normalizeImage(int *image, int size);
@@ -19,7 +15,7 @@ double findMax(double * array, int size );
 
 double **createPatches(double *image, int size, int patchSize);
 
-double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double sigma);
+double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double *gaussianWeights);
 
 void printPatch(double *patch, int patchSize);
 
