@@ -9,26 +9,7 @@ double gaussian(double sigma, double x)
 {
     return (1 / (sigma * sqrt(2 * M_PI))) * exp(-x * x / (2 * sigma * sigma));
 }
-double *gaussianWeight(int patchSize)
-{ //1-based distance from centre
 
-    double *weights = (double *)malloc(patchSize * sizeof(double));
-    double sigma = 1 / patchSize;
-    for (int i = 1; i <= patchSize; i++)
-    {
-
-        weights[i - 1] = gaussian(i, sigma);
-    }
-    return weights;
-}
-
-bool isPowerOfTwo(int n)
-{
-    if (n == 0)
-        return false;
-
-    return (ceil(log2(n)) == floor(log2(n)));
-}
 
 int *readCSV(int *n, char *file) //n represents total number of pixels
 {
@@ -36,7 +17,7 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
     matFile = fopen(file, "r");
     if (matFile == NULL)
     {
-        printf("Could not open file %s", file);
+        printf("Could not open file %s\n", file);
         exit(-1);
     }
     int pixels, error;
@@ -48,7 +29,7 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
         error = fscanf(matFile, "%d,", &array[pixels - 1]);
         if (error != 1)
         {
-            printf("finished reading\n");
+            printf("Finished reading image \n");
             *n = sqrt(pixels);
             fclose(matFile);
             return array;
@@ -62,8 +43,8 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
     return array;
 }
 
-double *normalizeImage(int *image, int size)
-{ //size represents the dimension
+double *normalizeImage(int *image, int size) //size represents the dimension
+{ 
     int max = 0;
     for (int i = 0; i < size * size; i++)
     {
@@ -88,8 +69,8 @@ double *addNoiseToImage(double *image, int size)
     for (int i = 0; i < size * size; i++)
     {
         random_value = ((double)rand() / RAND_MAX * 20 - 10);
-        effect = gaussian(2, random_value) - 0.05;
-        noisy[i] = (effect + 1) * image[i];
+        effect = gaussian(2, random_value) - 0.05;  
+        noisy[i] = (effect + 1) * image[i]; //add gaussian noise
         if (noisy[i] < 0)
             noisy[i] = 0;
         else if (noisy[i] > 1)
@@ -108,7 +89,7 @@ void writeToCSV(double *image, int size, char *name)
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++)
-            fprintf(filepointer, "%f,", image[i * size + j]);
+            fprintf(filepointer, "%f,", image[i * size + j]); //write each pixel value
 
         fprintf(filepointer, "\n");
     }
@@ -159,7 +140,6 @@ double **createPatches(double *image, int size, int patchSize)
                     }
                 }
             }
-            patches[i * size + j] = (double *)malloc(patchSize * patchSize * sizeof(double));
             patches[i * size + j] = patch;
         }
     }
@@ -193,7 +173,7 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
         }
     }
     //printf("Sum is %f\n", sum);
-    //free(gaussianWeights);
+    free(gaussianWeights);
     return sum;
 }
 
