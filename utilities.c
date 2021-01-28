@@ -119,7 +119,6 @@ double **createPatches(double *image, int size, int patchSize)
     {
         for (int j = 0; j < size; j++) //go to each pixel of the image
         {
-            int mod = j % size;
             double *patch = (double *)malloc(patchSize * patchSize * sizeof(double)); //We assume that (i,j) is the pixel on the centre
             for (int k = -patchLimit; k <= patchLimit; k++)
             {
@@ -132,7 +131,7 @@ double **createPatches(double *image, int size, int patchSize)
                     if (imageIterator >= 0 && imageIterator < size * size) //filter out of image pixels
                     {
 
-                        if (!(mod < patchLimit && m < -mod) && !(mod >= size - patchLimit && m >= size - mod))
+                        if (!(j < patchLimit && m < -j) && !(j >= size - patchLimit && m >= size - j))
                             //!(j % size < patchLimit && m +  < 0) filters pixels that are on the left side of the patch
                             //!(j % size >= size - patchLimit && m  >=size - j % size) filters pixels that are on the right side of the patch
                             patch[patchIterator] = image[imageIterator];
