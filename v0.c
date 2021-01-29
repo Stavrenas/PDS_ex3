@@ -23,18 +23,6 @@ double toc(struct timeval begin)
     return (stime);
 }
 
-/* Usage of the functions above 
-
-        struct timeval tStart;
-		tStart = tic();
-		
-        run_function;
-		
-		printf("%.6f\n", toc(tStart));
-
-
-*/
-
 int main(int argc, char **argv[])
 {
     //** CPU IMPLEMENTATION **//

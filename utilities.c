@@ -3,7 +3,10 @@
 #include <math.h> // sqrt, M_PI
 #include <stdbool.h>
 #include <time.h>
+#include <sys/time.h>
 #include <string.h>
+#include "utilities.h"
+
 
 double gaussian(double sigma, double x)
 {
@@ -132,8 +135,8 @@ double **createPatches(double *image, int size, int patchSize)
                     {
 
                         if (!(j < patchLimit && m < -j) && !(j >= size - patchLimit && m >= size - j))
-                            //!(j % size < patchLimit && m +  < 0) filters pixels that are on the left side of the patch
-                            //!(j % size >= size - patchLimit && m  >=size - j % size) filters pixels that are on the right side of the patch
+                            //!(j  < patchLimit && m +  < 0) filters pixels that are on the left side of the patch
+                            //!(j  >= size - patchLimit && m  >=size - j ) filters pixels that are on the right side of the patch
                             patch[patchIterator] = image[imageIterator];
                     }
                 }
