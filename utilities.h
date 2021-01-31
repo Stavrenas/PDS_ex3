@@ -1,26 +1,31 @@
 #ifndef UTILITIES_H
 #define UTILITIES_H
+#include <sys/time.h>
 
-double gaussian(double sigma, double x);
+float gaussian(float sigma, float x);
 
 int *readCSV(int *n, char *file);
 
-double *normalizeImage(int *image, int size);
+float *normalizeImage(int *image, int size);
 
-double *addNoiseToImage(double *image, int size);
+float *addNoiseToImage(float *image, int size);
 
-void writeToCSV(double* image, int size, char* name);
+void writeToCSV(float* image, int size, char* name);
 
-double findMax(double * array, int size );
+float findMax(float * array, int size );
 
-double **createPatches(double *image, int size, int patchSize);
+float **createPatches(float *image, int size, int patchSize);
 
-double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double *gaussianWeights);
+float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, float *gaussianWeights);
 
-void printPatch(double *patch, int patchSize);
+void printPatch(float *patch, int patchSize);
 
-double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, double sigmaGauss);
+float *denoiseImage(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss);
 
-double * findRemoved(double * noisy, double *denoised, int size);
+float * findRemoved(float * noisy, float *denoised, int size);
+
+double toc(struct timeval begin);
+
+struct timeval tic();
 
 #endif

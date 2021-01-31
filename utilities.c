@@ -7,10 +7,21 @@
 #include <string.h>
 #include "utilities.h"
 
-
-double gaussian(double sigma, double x)
+struct timeval tic()
 {
-    return (1 / (sigma * sqrt(2 * M_PI))) * exp(-x * x / (2 * sigma * sigma));
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv;
+}
+
+double toc(struct timeval begin)
+{
+    struct timeval end;
+    gettimeofday(&end, NULL);
+    double stime = ((double)(end.tv_sec - begin.tv_sec) * 1000) +
+                   ((double)(end.tv_usec - begin.tv_usec) / 1000);
+    stime = stime / 1000;
+    return (stime);
 }
 
 
@@ -46,7 +57,38 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
     return array;
 }
 
-double *normalizeImage(int *image, int size) //size represents the dimension
+void writeToCSV(float *image, int size, char *name)
+{
+    FILE *filepointer;
+    char *filename = (char *)malloc((strlen(name) + 4) * sizeof(char));
+    sprintf(filename, "%s.csv", name);
+    filepointer = fopen(filename, "w"); //create a file
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+            fprintf(filepointer, "%.6f,", image[i * size + j]); //write each pixel value
+
+        fprintf(filepointer, "\n");
+    }
+}
+
+float gaussian(float sigma, float x)
+{
+    return (1 / (sigma * sqrt(2 * M_PI))) * exp(-x * x / (2 * sigma * sigma));
+}
+
+float findMax(float *array, int size)
+{
+    float max = 0;
+    for (int i = 0; i < size; i++)
+    {
+        if (array[i] > max)
+            max = array[i];
+    }
+    return max;
+}
+
+float *normalizeImage(int *image, int size) //size represents the dimension
 { 
     int max = 0;
     for (int i = 0; i < size * size; i++)
@@ -54,26 +96,26 @@ double *normalizeImage(int *image, int size) //size represents the dimension
         if (image[i] > max)
             max = image[i];
     }
-    double *array = (double *)malloc(size * size * sizeof(double));
+    float *array = (float *)malloc(size * size * sizeof(float));
     for (int i = 0; i < size * size; i++)
     {
-        array[i] = ((double)image[i]) / max;
+        array[i] = ((float)image[i]) / max;
     }
     printf("Finished normalizing\n");
     return array;
 }
 
-double *addNoiseToImage(double *image, int size)
+float *addNoiseToImage(float *image, int size)
 {
     srand(time(NULL));
-    double *noisy = (double *)malloc(size * size * sizeof(double));
+    float *noisy = (float *)malloc(size * size * sizeof(float));
 
-    double random_value, effect;
+    float random_value, effect;
     for (int i = 0; i < size * size; i++)
     {
-        random_value = ((double)rand() / RAND_MAX * 20 - 10);
+        random_value = ((float)rand() / RAND_MAX * 20 - 10);
         effect = gaussian(2, random_value) - 0.05;  
-        noisy[i] = (effect + 1) * image[i]; //add gaussian noise
+        noisy[i] = (effect*0.5 + 1) * image[i]; //add gaussian noise
         if (noisy[i] < 0)
             noisy[i] = 0;
         else if (noisy[i] > 1)
@@ -83,46 +125,21 @@ double *addNoiseToImage(double *image, int size)
     return noisy;
 }
 
-void writeToCSV(double *image, int size, char *name)
-{
-    FILE *filepointer;
-    char *filename = (char *)malloc((strlen(name) + 4) * sizeof(char));
-    sprintf(filename, "%s.csv", name);
-    filepointer = fopen(filename, "w"); //create a file
-    for (int i = 0; i < size; i++)
-    {
-        for (int j = 0; j < size; j++)
-            fprintf(filepointer, "%f,", image[i * size + j]); //write each pixel value
 
-        fprintf(filepointer, "\n");
-    }
-}
-
-double findMax(double *array, int size)
-{
-    double max = 0;
-    for (int i = 0; i < size; i++)
-    {
-        if (array[i] > max)
-            max = array[i];
-    }
-    return max;
-}
-
-double **createPatches(double *image, int size, int patchSize)
+float **createPatches(float *image, int size, int patchSize)
 {
     //We assume that patchSize is an odd number//
     //In order to create the patches we must consider that the pixels are stored in Row-Major format//
     //A simple aproach is to handle the patches also in the same format//
     int patchLimit = (patchSize-1) / 2;
     int patchIterator, imageIterator;
-    double **patches = (double **)malloc(size * size * sizeof(double *));
+    float **patches = (float **)malloc(size * size * sizeof(float *));
 
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++) //go to each pixel of the image
         {
-            double *patch = (double *)malloc(patchSize * patchSize * sizeof(double)); //We assume that (i,j) is the pixel on the centre
+            float *patch = (float *)malloc(patchSize * patchSize * sizeof(float)); //We assume that (i,j) is the pixel on the centre
             for (int k = -patchLimit; k <= patchLimit; k++)
             {
                 for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
@@ -147,11 +164,10 @@ double **createPatches(double *image, int size, int patchSize)
     return patches;
 }
 
-double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, double * gaussianWeights)
+float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, float * gaussianWeights)
 {
     int patchLimit = (patchSize-1) / 2;
-    double sum, result, gauss = 0;
-    sum = 0;
+    float result,sum = 0;
 
     for (int k = -patchLimit; k <= patchLimit; k++)
     {
@@ -169,7 +185,7 @@ double calculateGaussianDistance(double *patch1, double *patch2, int patchSize, 
     return sum;
 }
 
-void printPatch(double *patch, int patchSize)
+void printPatch(float *patch, int patchSize)
 {
 
     for (int i = 0; i < patchSize; i++)
@@ -185,27 +201,27 @@ void printPatch(double *patch, int patchSize)
     }
 }
 
-double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, double sigmaGauss)
+float *denoiseImage(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
 {
-
     int totalPixels = size * size;
     int patchLimit = (patchSize-1) / 2;
-    double **patches = (double **)malloc(totalPixels * sizeof(double *));
-    double **distances = (double **)malloc(totalPixels * sizeof(double *));
-    patches = createPatches(image, size, patchSize);
+    float **patches, **distances;
+    distances=(float**)malloc(totalPixels*totalPixels*sizeof(float*));
 
-    double *gaussianWeights = (double *)malloc((patchSize + patchLimit) * sizeof(double));
+    patches = createPatches(image, size, patchSize);  //patch creation
+
+    float *gaussianWeights = (float *)malloc((patchSize + patchLimit) * sizeof(float));
     for (int i = 0; i < patchSize + patchLimit; i++)
-        gaussianWeights[i] = gaussian(sigmaGauss, i);
+        gaussianWeights[i] = gaussian(sigmaGauss, i); //calculate all the necessary gaussian weights
 
     for (int i = 0; i < totalPixels; i++)
     {
-        double normalFactor = 0;
-        distances[i] = (double *)malloc(totalPixels * sizeof(double));
+        float normalFactor = 0;
+        distances[i] = (float *)malloc(totalPixels * sizeof(float));
 
         for (int j = 0; j < totalPixels; j++)
         {
-            double dist = calculateGaussianDistance(patches[i], patches[j], patchSize, gaussianWeights); //calculate distances from each patch with gaussian weights
+            float dist = calculateGaussianDistance(patches[i], patches[j], patchSize, gaussianWeights); //calculate distances from each patch with gaussian weights
             distances[i][j] = exp(-dist / (sigmaDist * sigmaDist));
             normalFactor += distances[i][j]; //calculate factor to normalize distances ~ Z[i]
         }
@@ -214,13 +230,14 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
             distances[i][j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
     }
 
-    double *denoisedImage = (double *)malloc(totalPixels * sizeof(double));
+    float *denoisedImage = (float *)malloc(totalPixels * sizeof(float));
     for (int i = 0; i < totalPixels; i++)
     {
         denoisedImage[i] = 0;
         for (int j = 0; j < totalPixels; j++)
             denoisedImage[i] += distances[i][j] * image[j];
     }
+
     printf("Finished denoising \n");
     for (int i = 0; i < totalPixels; i++){
         free(patches[i]);
@@ -228,13 +245,14 @@ double *denoiseImage(double *image, int size, int patchSize, double sigmaDist, d
     }
     free(patches);
     free(distances);
+    free(gaussianWeights);
     return denoisedImage;
 }
 
-double *findRemoved(double *noisy, double *denoised, int size)
+float *findRemoved(float *noisy, float *denoised, int size)
 {
     int totalPixels = size * size;
-    double *removed = (double *)malloc(totalPixels * sizeof(double));
+    float *removed = (float *)malloc(totalPixels * sizeof(float));
     for (int i = 0; i < totalPixels; i++)
         removed[i] = denoised[i] - noisy[i];
     printf("Finished finding removed\n");
