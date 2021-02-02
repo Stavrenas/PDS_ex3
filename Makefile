@@ -1,14 +1,14 @@
 CC = gcc
 NVCC = nvcc
-FLAGS = -lm
+CFLAGS = -lm -O3
 
 all: cpu
 
 cpu: cpu.c utilities.c
-	$(CC) -o $@ $^ $(FLAGS)
+	$(CC) -o $@ $^ $(CFLAGS)
 
 test: test.c utilities.c
-	$(CC) -o $@ $^ $(FLAGS)
+	$(CC) -o $@ $^ $(CFLAGS)
 
 gpu: gpu.cu cudaUtilities.cu utilities.c
 	$(NVCC) $^ -o $@  
