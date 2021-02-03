@@ -10,5 +10,5 @@ cpu: cpu.c utilities.c
 test: test.c utilities.c
 	$(CC) -o $@ $^ $(CFLAGS)
 
-gpu: gpu.cu cudaUtilities.cu utilities.c
+gpu: gpu.cu cudaUtilities.cu 
 	$(NVCC) $^ -o $@  
