@@ -49,7 +49,7 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
         error = fscanf(matFile, "%d,", &array[pixels - 1]);
         if (error != 1)
         {
-            printf("Finished reading image \n");
+            //printf("Finished reading image \n");
             *n = sqrt(pixels);
             fclose(matFile);
             return array;
@@ -90,7 +90,7 @@ float *addNoiseToImage(float *image, int size)
     {
         random_value = ((float)rand() / RAND_MAX * 20 - 10);
         effect = gaussian(2, random_value) - 0.05;
-        noisy[i] = (effect + 1) * image[i]; //add gaussian noise
+        noisy[i] = (effect*0.5 + 1) * image[i]; //add gaussian noise
         if (noisy[i] < 0)
             noisy[i] = 0;
         else if (noisy[i] > 1)
@@ -132,14 +132,15 @@ float *createPatchesRowMajor(float *image, int size, int patchSize)
     //In order to create the patches we must consider that the pixels are stored in Row-Major format//
     //A simple aproach is to handle the patches also in the same format//
     int patchLimit = (patchSize - 1) / 2;
+    int totalPatchSize=patchSize*patchSize;
     int patchIterator, imageIterator;
-    float *patches = (float *)malloc(size * size * patchSize * patchSize * sizeof(float));
+    float *patches = (float *)malloc(size * size * totalPatchSize * sizeof(float));
 
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++) //go to each pixel of the image
         {
-            float *patch = (float *)malloc(patchSize * patchSize * sizeof(float)); //We assume that (i,j) is the pixel on the centre
+            float *patch = (float *)malloc(totalPatchSize * sizeof(float)); //We assume that (i,j) is the pixel on the centre
             for (int k = -patchLimit; k <= patchLimit; k++)
             {
                 for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
@@ -158,28 +159,27 @@ float *createPatchesRowMajor(float *image, int size, int patchSize)
                     }
                 }
             }
-            for (int o = 0; o < patchSize * patchSize; o++)
-                patches[i*size*patchSize*patchSize + j*patchSize*patchSize + o] = patch[o];
+            for (int o = 0; o < totalPatchSize; o++)
+                patches[i * size * totalPatchSize + j * totalPatchSize + o] = patch[o];
             free(patch);
         }
     }
     return patches;
 }
 
-void printPatch(float *patch, int patchSize)
+void printPatchRowMajor(float *patches, int patchSize, int i)
 {
-
-    for (int i = 0; i < patchSize; i++)
-    {
-        for (int j = 0; j < patchSize; j++)
-        {
-            if (patch[i * patchSize + j] == -1)
-                printf("    x    ");
-            else
-                printf("%f ", patch[i * patchSize + j]);
-        }
+    int patchI=i*patchSize*patchSize;
+    for(int j=patchI; j<patchI+patchSize*patchSize; j++){
+        if((j)%patchSize==0)
         printf("\n");
+        if(patches[j]==-1)
+        printf("    x    ");
+        else 
+        printf("%f ", patches[j]);
+    
     }
+    printf("\n");
 }
 
 float *findRemoved(float *noisy, float *denoised, int size)
@@ -231,26 +231,38 @@ float *findRemoved(float *noisy, float *denoised, int size)
 //     }
 // }
 
-
-float *calculateDistances(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist)
+float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *image)
 {
     int totalPixels = size * size;
     int patchLimit = (patchSize - 1) / 2;
-    float *cudaPatches, *cudaGaussianWeights, *cudaDistances;
-    cudaMalloc(&cudaPatches, totalPixels * patchSize * patchSize* sizeof(float));
+    float *cudaPatches, *cudaGaussianWeights, *cudaDistances, *denoisedCuda, *imageCuda;
+    cudaMalloc(&cudaPatches, totalPixels * patchSize * patchSize * sizeof(float));
     cudaMalloc(&cudaDistances, totalPixels * totalPixels * sizeof(float));
     cudaMalloc(&cudaGaussianWeights, (patchSize + patchLimit) * sizeof(float));
+    cudaMalloc(&denoisedCuda, totalPixels * sizeof(float));
+    cudaMalloc(&imageCuda, totalPixels * sizeof(float));
+
     cudaMemcpy(cudaGaussianWeights, gaussianWeights, (patchSize + patchLimit) * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(cudaPatches, patches, totalPixels * patchSize * patchSize * sizeof(float), cudaMemcpyHostToDevice);
-
+    cudaMemcpy(imageCuda, image, totalPixels * sizeof(float), cudaMemcpyHostToDevice);
+    //printf("Entered findPatchDistances\n");
     findPatchDistances<<<size, size>>>(cudaPatches, size, patchSize, cudaGaussianWeights, cudaDistances, sigmaDist);
+    cudaDeviceSynchronize(); //ensure that cudaPatches is fully calculated
+    //printf("Entered normalizeDistances\n");
+    normalizeDistances<<<size, size>>>(cudaDistances, size);
+    cudaDeviceSynchronize();
+   // printf("Entered calculateDenoisedImage\n");
+    calculateDenoisedImage<<<size, size>>>(denoisedCuda, cudaDistances, imageCuda, size);
+    cudaDeviceSynchronize();
 
-    float *distances = (float *)malloc(totalPixels * totalPixels * sizeof(float));
-    cudaMemcpy(distances, cudaDistances, (totalPixels * totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
+    float *denoised = (float *)malloc(totalPixels * sizeof(float));
+    cudaMemcpy(denoised, denoisedCuda, (totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
     cudaFree(cudaPatches);
     cudaFree(cudaDistances);
     cudaFree(cudaGaussianWeights);
-    return distances;
+    cudaFree(denoisedCuda);
+    cudaFree(imageCuda);
+    return denoised;
 }
 
 __global__ void findPatchDistances(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist)
@@ -258,32 +270,53 @@ __global__ void findPatchDistances(float *patches, int size, int patchSize, floa
 
     int col = threadIdx.x; //0.. size-1
     int row = blockIdx.x;  //0.. size-1
+    int patchLimit = (patchSize - 1) / 2;
     int totalPixels = size * size;
-    int totalPatch=patchSize*patchSize;
-    //printf("i is %d j is %d\n",i,j);
+    int totalPatchSize = patchSize * patchSize;
+    //printf("row is %d col is %d, i is %d, j is %d\n", row, col, i, j);
 
-    for (int i = row*size; i < (row+1)*size; i++)
+    for (int i = row * size; i < (row + 1) * size; i++)
     {
-        for (int j = col*size; j < (col+1)*size; j++)
+        for (int j = col * size; j < (col + 1) * size; j++)
         {
-            int patchLimit = (patchSize - 1) / 2;
-            float result, sum = 0;
-
+            float sum = 0;
             for (int k = -patchLimit; k <= patchLimit; k++)
             {
                 for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
                 {
                     int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
-                    if (patches[i * totalPatch + patchIterator] != -1 && patches[j * totalPatch + patchIterator] != -1) //this means out of bounds
+                    if (patches[i * totalPatchSize + patchIterator] != -1 && patches[j * totalPatchSize + patchIterator] != -1) //this means out of bounds
                     {
-                        int distance = m * m + k * k; 
-                        result = (patches[i * totalPatch + patchIterator] - patches[j * totalPatch + patchIterator]) *
-                            (patches[i * totalPatch + patchIterator] - patches[j * totalPatch + patchIterator]) * gaussianWeights[distance];
-                        sum += result;
+                        int distance = m * m + k * k;
+                        sum += (patches[i * totalPatchSize + patchIterator] - patches[j * totalPatchSize + patchIterator]) *
+                                 (patches[i * totalPatchSize + patchIterator] - patches[j * totalPatchSize + patchIterator]) * gaussianWeights[distance];
                     }
                 }
             }
-            distances[i*totalPixels + j] = exp(-sum / (sigmaDist * sigmaDist));
+            distances[i * totalPixels + j] = exp(-sum / (sigmaDist * sigmaDist));
         }
     }
+}
+
+__global__ void normalizeDistances(float *distances, int size)
+{
+    int totalPixels = size * size;
+    float normalFactor = 0;
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+    for (int j = 0; j < totalPixels; j++)
+        normalFactor += distances[i * totalPixels + j]; //calculate factor to normalize distances ~ Z[i]
+
+    for (int j = 0; j < totalPixels; j++)
+        distances[i * totalPixels + j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
+    //printf("%dth pixel normal factor %f\n", i, normalFactor);
+}
+
+__global__ void calculateDenoisedImage(float *denoisedImage, float *distances, float *image, int size)
+{
+    int totalPixels = size * size;
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    denoisedImage[i] = 0;
+    for (int j = 0; j < totalPixels; j++)
+        denoisedImage[i] += distances[i * totalPixels + j] * image[j];
 }
