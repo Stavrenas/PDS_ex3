@@ -5,8 +5,7 @@
 #include <math.h> // sqrt, M_PI
 #include <stdbool.h>
 #include <time.h>
-#include <sys/time.h>
-#include "utilities.h"
+#include <sys/time.h> // tic() and toc()
 #include "cudaUtilities.h"
 
 struct timeval tic()
@@ -128,9 +127,6 @@ float findMax(float *array, int size)
 
 float *createPatchesRowMajor(float *image, int size, int patchSize)
 {
-    //We assume that patchSize is an odd number//
-    //In order to create the patches we must consider that the pixels are stored in Row-Major format//
-    //A simple aproach is to handle the patches also in the same format//
     int patchLimit = (patchSize - 1) / 2;
     int totalPatchSize=patchSize*patchSize;
     int patchIterator, imageIterator;
@@ -172,12 +168,11 @@ void printPatchRowMajor(float *patches, int patchSize, int i)
     int patchI=i*patchSize*patchSize;
     for(int j=patchI; j<patchI+patchSize*patchSize; j++){
         if((j)%patchSize==0)
-        printf("\n");
+            printf("\n");
         if(patches[j]==-1)
-        printf("    x    ");
+            printf("    x    ");
         else 
-        printf("%f ", patches[j]);
-    
+            printf("%f ", patches[j]);
     }
     printf("\n");
 }
@@ -236,32 +231,35 @@ float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, 
     int totalPixels = size * size;
     int patchLimit = (patchSize - 1) / 2;
     float *cudaPatches, *cudaGaussianWeights, *cudaDistances, *denoisedCuda, *imageCuda;
+
     cudaMalloc(&cudaPatches, totalPixels * patchSize * patchSize * sizeof(float));
     cudaMalloc(&cudaDistances, totalPixels * totalPixels * sizeof(float));
-    cudaMalloc(&cudaGaussianWeights, (patchSize + patchLimit) * sizeof(float));
+    cudaMalloc(&cudaGaussianWeights, (patchSize + patchLimit) * sizeof(float)); //alocate memory for the arrays
     cudaMalloc(&denoisedCuda, totalPixels * sizeof(float));
     cudaMalloc(&imageCuda, totalPixels * sizeof(float));
 
     cudaMemcpy(cudaGaussianWeights, gaussianWeights, (patchSize + patchLimit) * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(cudaPatches, patches, totalPixels * patchSize * patchSize * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(imageCuda, image, totalPixels * sizeof(float), cudaMemcpyHostToDevice);
-    //printf("Entered findPatchDistances\n");
+
     findPatchDistances<<<size, size>>>(cudaPatches, size, patchSize, cudaGaussianWeights, cudaDistances, sigmaDist);
     cudaDeviceSynchronize(); //ensure that cudaPatches is fully calculated
-    //printf("Entered normalizeDistances\n");
+
     normalizeDistances<<<size, size>>>(cudaDistances, size);
     cudaDeviceSynchronize();
-   // printf("Entered calculateDenoisedImage\n");
+
     calculateDenoisedImage<<<size, size>>>(denoisedCuda, cudaDistances, imageCuda, size);
-    cudaDeviceSynchronize();
+    cudaDeviceSynchronize(); //ensure that denoisedCuda is properly calculated
 
     float *denoised = (float *)malloc(totalPixels * sizeof(float));
     cudaMemcpy(denoised, denoisedCuda, (totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
+
     cudaFree(cudaPatches);
     cudaFree(cudaDistances);
     cudaFree(cudaGaussianWeights);
     cudaFree(denoisedCuda);
     cudaFree(imageCuda);
+
     return denoised;
 }
 
@@ -273,8 +271,10 @@ __global__ void findPatchDistances(float *patches, int size, int patchSize, floa
     int patchLimit = (patchSize - 1) / 2;
     int totalPixels = size * size;
     int totalPatchSize = patchSize * patchSize;
-    //printf("row is %d col is %d, i is %d, j is %d\n", row, col, i, j);
-
+    printf("%d \n",row);
+    //Each thread goes to a single row and column and calculates the distances.
+    //For example,  in the block with blockIdx.x = 50, all the threads find the distances 
+    //of each pixel in the image with each pixel of the 50th row
     for (int i = row * size; i < (row + 1) * size; i++)
     {
         for (int j = col * size; j < (col + 1) * size; j++)
@@ -282,7 +282,7 @@ __global__ void findPatchDistances(float *patches, int size, int patchSize, floa
             float sum = 0;
             for (int k = -patchLimit; k <= patchLimit; k++)
             {
-                for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
+                for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of patch(i) and patch(j)
                 {
                     int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
                     if (patches[i * totalPatchSize + patchIterator] != -1 && patches[j * totalPatchSize + patchIterator] != -1) //this means out of bounds

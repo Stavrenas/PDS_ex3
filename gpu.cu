@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     float sigmaGauss = 1.66;
     if(argc==1){
     patchSize = 7;
-    sprintf(name, "%s", "image2");
+    sprintf(name, "%s", "image1");
     }
     else if(argc==3){
     patchSize=atoi(argv[1]);
@@ -47,16 +47,6 @@ int main(int argc, char *argv[])
     char *noisyName = (char *)malloc(20 * sizeof(char));
     sprintf(noisyName, "%s_noisy", name);
     writeToCSV(noisy, size, noisyName);
-
-    // float noisy[49] = {0.12, 0.56, 0.34, 0.11, 1, 0, 0.93,
-    //                     0.77, 0.33, 0.11, 0.24, 0.9, 0.34, 0.11,
-    //                     0.32, 0.35, 0.48, 0.69, 0.21, 0, 0.45,
-    //                     0.98, 0.45, 0.69, 0.54, 0.26, 0.45, 0.23,
-    //                     0.69, 0.21, 0, 0.77, 0.33, 0.11, 1,
-    //                     0.9, 0.34, 0.11, 0.45, 0.69, 0.54, 0.72,
-    //                     0.11, 0.24, 0.9, 0.34, 0.11, 0.11, 0.32};
-    //  size = 7;
-    //  patchSize = 3;
 
     struct timeval tStart;
     tStart = tic();
