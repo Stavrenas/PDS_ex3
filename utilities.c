@@ -167,7 +167,7 @@ float **createPatches(float *image, int size, int patchSize)
 float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, float * gaussianWeights)
 {
     int patchLimit = (patchSize-1) / 2;
-    float result,sum = 0;
+    float sum = 0;
 
     for (int k = -patchLimit; k <= patchLimit; k++)
     {
@@ -177,8 +177,7 @@ float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, flo
             if (patch1[patchIterator] != -1 && patch2[patchIterator] != -1) //this means out of bounds
             {
                 int distance = m * m + k * k; //distance from centre pixel
-                result = (patch1[patchIterator] - patch2[patchIterator]) * (patch1[patchIterator] - patch2[patchIterator]) * gaussianWeights[distance];
-                sum += result;
+                sum += (patch1[patchIterator] - patch2[patchIterator]) * (patch1[patchIterator] - patch2[patchIterator]) * gaussianWeights[distance];
             }
         }
     }
