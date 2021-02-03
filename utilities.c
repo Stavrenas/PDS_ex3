@@ -43,7 +43,7 @@ int *readCSV(int *n, char *file) //n represents total number of pixels
         error = fscanf(matFile, "%d,", &array[pixels - 1]);
         if (error != 1)
         {
-            printf("Finished reading image \n");
+            //printf("Finished reading image \n");
             *n = sqrt(pixels);
             fclose(matFile);
             return array;
