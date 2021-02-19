@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     }
     else if(argc==3){
     patchSize=atoi(argv[1]);
-    sprintf(name, "%s", argv[4]);
+    sprintf(name, "%s", argv[2]);
     }
     else{
         printf("Command line arguements are: PatchSize, name.\n");
@@ -74,6 +74,24 @@ float *denoiseImageCuda(float *image, int size, int patchSize, float sigmaDist, 
         gaussianWeights[i] = gaussian(sigmaGauss, i); //calculate all the necessary gaussian weights
     patches = createPatchesRowMajor(image, size, patchSize); //patch creation
     denoisedImage = denoise(patches, size, patchSize, gaussianWeights, sigmaDist, image);
+
+    printf("Finished denoising \n");
+
+    free(patches);
+    free(gaussianWeights);
+    return denoisedImage;
+}
+
+float *denoiseImageCudaShared(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
+{
+    int patchLimit = (patchSize - 1) / 2;
+    float *patches , *denoisedImage; 
+
+    float *gaussianWeights = (float *)malloc((patchSize + patchLimit) * sizeof(float));
+    for (int i = 0; i < patchSize + patchLimit; i++)
+        gaussianWeights[i] = gaussian(sigmaGauss, i); //calculate all the necessary gaussian weights
+    patches = createPatchesRowMajor(image, size, patchSize); //patch creation
+    denoisedImage = denoiseShared(patches, size, patchSize, gaussianWeights, sigmaDist, image);
 
     printf("Finished denoising \n");
 

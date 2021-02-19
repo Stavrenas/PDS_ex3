@@ -9,15 +9,23 @@ __global__ void gaussianDistanceCuda(int size, float *distances, float *gaussian
 
 float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, float * gaussianWeights);
 
-float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float* image);
-
 float *createPatchesRowMajor(float *image, int size, int patchSize);
+
+float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float* image);
 
 __global__ void findPatchDistances(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist);
 
 __global__ void normalizeDistances(float *distances, int size);
 
 __global__ void calculateDenoisedImage(float *denoised, float *distances, float *image, int size);
+
+float *denoiseShared(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float* image);
+
+__global__ void findPatchDistancesShared(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist);
+
+__global__ void normalizeDistancesShared(float *distances, int size);
+
+__global__ void calculateDenoisedImageShared(float *denoised, float *distances, float *image, int size);
 
 
 #endif
