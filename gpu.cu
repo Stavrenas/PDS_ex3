@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     float sigmaGauss = 1.66;
     if(argc==1){
     patchSize = 7;
-    sprintf(name, "%s", "image1");
+    sprintf(name, "%s", "image2");
     }
     else if(argc==3){
     patchSize=atoi(argv[1]);
@@ -67,11 +67,11 @@ int main(int argc, char *argv[])
 float *denoiseImageCuda(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
 {
     int patchLimit = (patchSize - 1) / 2;
-    float *patches , *denoisedImage; 
+    float *patches , *denoisedImage, *gaussianWeights; 
 
-    float *gaussianWeights = (float *)malloc((patchSize + patchLimit) * sizeof(float));
-    for (int i = 0; i < patchSize + patchLimit; i++)
-        gaussianWeights[i] = gaussian(sigmaGauss, i); //calculate all the necessary gaussian weights
+    gaussianWeights = (float *)malloc((2*patchLimit*patchLimit+1) * sizeof(float));
+    for (int i = 0; i <= 2*patchLimit*patchLimit; i++)
+        gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights
     patches = createPatchesRowMajor(image, size, patchSize); //patch creation
     denoisedImage = denoise(patches, size, patchSize, gaussianWeights, sigmaDist, image);
 
@@ -82,20 +82,20 @@ float *denoiseImageCuda(float *image, int size, int patchSize, float sigmaDist, 
     return denoisedImage;
 }
 
-float *denoiseImageCudaShared(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
-{
-    int patchLimit = (patchSize - 1) / 2;
-    float *patches , *denoisedImage; 
+// float *denoiseImageCudaShared(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
+// {
+//     int patchLimit = (patchSize - 1) / 2;
+//     float *patches , *denoisedImage, *gaussianWeights; 
 
-    float *gaussianWeights = (float *)malloc((patchSize + patchLimit) * sizeof(float));
-    for (int i = 0; i < patchSize + patchLimit; i++)
-        gaussianWeights[i] = gaussian(sigmaGauss, i); //calculate all the necessary gaussian weights
-    patches = createPatchesRowMajor(image, size, patchSize); //patch creation
-    denoisedImage = denoiseShared(patches, size, patchSize, gaussianWeights, sigmaDist, image);
+//     gaussianWeights = (float *)malloc((2*patchLimit*patchLimit+1) * sizeof(float));
+//     for (int i = 0; i <= 2*patchLimit*patchLimit; i++)
+//         gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights
+//     patches = createPatchesRowMajor(image, size, patchSize); //patch creation
+//     denoisedImage = denoiseShared(patches, size, patchSize, gaussianWeights, sigmaDist, image);
 
-    printf("Finished denoising \n");
+//     printf("Finished denoising \n");
 
-    free(patches);
-    free(gaussianWeights);
-    return denoisedImage;
-}
+//     free(patches);
+//     free(gaussianWeights);
+//     return denoisedImage;
+// }
