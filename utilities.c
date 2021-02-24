@@ -204,13 +204,14 @@ float *denoiseImage(float *image, int size, int patchSize, float sigmaDist, floa
 {
     int totalPixels = size * size;
     int patchLimit = (patchSize - 1) / 2;
+    int gaussianSize=2*patchLimit*patchLimit+1;
     float **patches, *gaussianWeights;
-
-    gaussianWeights = (float *)malloc((2*patchLimit*patchLimit+1) * sizeof(float));
 
     patches = createPatches(image, size, patchSize); //patch creation
 
-    for (int i = 0; i <= 2*patchLimit*patchLimit; i++)
+    gaussianWeights = (float *)malloc((gaussianSize) * sizeof(float));
+
+    for (int i = 0; i < gaussianSize; i++)
         gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights
 
     float *denoisedImage = (float *)malloc(totalPixels * sizeof(float));
