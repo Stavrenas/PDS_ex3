@@ -7,7 +7,7 @@
 #include <time.h>
 #include <sys/time.h> // tic() and toc()
 #include "cudaUtilities.h"
-#define MAX_SHARED_SIZE 32768
+#define MAX_SHARED_SIZE 49152
 
 // START OF AUXILIARY FUNCTIONS //
 struct timeval tic()
@@ -209,7 +209,7 @@ float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, 
     cudaMemcpy(cudaPatches, patches, totalPixels * patchSize * patchSize * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(cudaImage, image, totalPixels * sizeof(float), cudaMemcpyHostToDevice);
 
-    denoiseKernel<<<size, size, MAX_SHARED_SIZE>>>(cudaPatches, size, patchSize, cudaGaussianWeights, sigmaDist, cudaDenoised, cudaImage, cudaDistances);
+    denoiseKernelShared<<<size, size, MAX_SHARED_SIZE>>>(cudaPatches, size, patchSize, cudaGaussianWeights, sigmaDist, cudaDenoised, cudaImage, cudaDistances);
     float *denoised = (float *)malloc(totalPixels * sizeof(float));
     cudaMemcpy(denoised, cudaDenoised, (totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
 
@@ -264,6 +264,52 @@ __global__ void denoiseKernel(float *patches, int size, int patchSize, float *ga
     
 }
 
+__global__ void denoiseKernelShared(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *denoisedImage, float *image, float *distances)
+{
+    int patchLimit = (patchSize - 1) / 2;
+    int gaussianSize = 2 * patchLimit * patchLimit + 1;
+    int totalPatchSize = patchSize * patchSize;
+
+    extern __shared__ float shared[];
+    int col = threadIdx.x; //0.. size-1 
+    int row = blockIdx.x;  //0.. size-1 
+    int pixel = row * size + col;
+    float pixelValue=0;
+    //printf("launched %d block and %d thread\n", blockIdx.x, threadIdx.x);
+    float *gaussianWeightsShared=shared;
+    float *patchesRowShared=(float *)&gaussianWeightsShared[gaussianSize];
+    float *patchShared=(float *)&patchesRowShared[totalPatchSize * size];
+
+
+    for(int g = 0; g < gaussianSize; g++)
+        gaussianWeightsShared[g]=gaussianWeights[g];   //load gaussian weights array to shared memory
+
+    for(int p = 0; p < totalPatchSize; p++)
+        patchShared[p]=patches[pixel * totalPatchSize + p]; //load pixel's patch to shared memory
+
+    float dist,normalFactor = 0.0;
+
+    //go to each pixel of the image
+    //each thread on the same block is on the same j, so all the threads access the same row of the image 
+    for (int j = 0; j < size ; j++){
+        printf("%d thread with j %d and block %d\n", threadIdx.x, j, blockIdx.x);
+        for(int s = 0; s< totalPatchSize * size; s++)
+            patchesRowShared[s]=patches[s]; //load patches of row to shared memory
+
+        for (int i = 0; i < size ; i++){
+            printf("%d thread with i %d and block %d\n", threadIdx.x, i, blockIdx.x);
+            
+            dist =  patchDistanceSingle( patchSize, patchShared,  &patchesRowShared[(i) * totalPatchSize ], gaussianWeightsShared );
+            dist = exp(-dist / (sigmaDist * sigmaDist));
+            pixelValue += dist * image[j];
+            normalFactor += dist;
+        }
+    }
+
+    denoisedImage[pixel] = pixelValue/normalFactor;//distances now represents the weight factor for each pixel ~ w(i,j)
+    
+}
+
 __device__ float patchDistance(int i, int j, int patchSize, float *patches, float *gaussianWeights)
 {
     float sum = 0;
@@ -285,7 +331,7 @@ __device__ float patchDistance(int i, int j, int patchSize, float *patches, floa
     return sum;
 }
 
-__device__ float patchDistanceShared(int patchSize, float *patchShared, float *patch, float *gaussianWeightsShared)
+__device__ float patchDistanceSingle(int patchSize, float *patch1, float *patch2, float *gaussianWeightsShared)
 {
     float sum = 0;
     int patchLimit = (patchSize - 1) / 2;
@@ -294,11 +340,11 @@ __device__ float patchDistanceShared(int patchSize, float *patchShared, float *p
         for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of patch(i) and patch(j)
         {
             int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
-            if (patchShared[patchIterator] != -1 && patch[patchIterator] != -1) //this means out of bounds
+            if (patch1[patchIterator] != -1 && patch2[patchIterator] != -1) //this means out of bounds
             {
                 int distance = m * m + k * k;
-                sum += (patchShared[patchIterator] - patch[patchIterator]) *
-                       (patchShared[patchIterator] - patch[patchIterator]) * gaussianWeightsShared[distance];
+                sum += (patch1[patchIterator] - patch2[patchIterator]) *
+                       (patch1[patchIterator] - patch2[patchIterator]) * gaussianWeightsShared[distance];
             }
         }
     }
