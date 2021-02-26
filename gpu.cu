@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     float sigmaGauss = 1.66;
     if(argc==1){
     patchSize = 7;
-    sprintf(name, "%s", "image2");
+    sprintf(name, "%s", "image3");
     }
     else if(argc==3){
     patchSize=atoi(argv[1]);
@@ -81,21 +81,3 @@ float *denoiseImageCuda(float *image, int size, int patchSize, float sigmaDist, 
     free(gaussianWeights);
     return denoisedImage;
 }
-
-// float *denoiseImageCudaShared(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
-// {
-//     int patchLimit = (patchSize - 1) / 2;
-//     float *patches , *denoisedImage, *gaussianWeights; 
-
-//     gaussianWeights = (float *)malloc((2*patchLimit*patchLimit+1) * sizeof(float));
-//     for (int i = 0; i <= 2*patchLimit*patchLimit; i++)
-//         gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights
-//     patches = createPatchesRowMajor(image, size, patchSize); //patch creation
-//     denoisedImage = denoiseShared(patches, size, patchSize, gaussianWeights, sigmaDist, image);
-
-//     printf("Finished denoising \n");
-
-//     free(patches);
-//     free(gaussianWeights);
-//     return denoisedImage;
-// }

@@ -7,7 +7,7 @@
 #include <time.h>
 #include <sys/time.h> // tic() and toc()
 #include "cudaUtilities.h"
-#define MAX_DISTANCE_SIZE 256
+#define MAX_SHARED_SIZE 32768
 
 // START OF AUXILIARY FUNCTIONS //
 struct timeval tic()
@@ -192,168 +192,76 @@ float *findRemoved(float *noisy, float *denoised, int size)
 
 // END OF AUXILIARY FUNCTIONS //
 
-// __device__ float getPatchElement(float *image, int size, int pixel, int position, int patchSize)
-// {
-//     //returns the element in a certain patch position
-//     //without a need to save patch in memory
 
-//     int patchLimit = (patchSize - 1) / 2;
-//     float result = -1;
-//     int j = pixel % size;                                                                    //int i = pixel / size;
-//     int m = position % patchSize - patchLimit;                                               //int k = position / patchSize - patchLimit;
-//     int imageIterator = (pixel / size + position / patchSize - patchLimit) * size + (j + m); //int imageIterator = (i + k) * size + (j + m);
-
-//     if (imageIterator >= 0 && imageIterator < size * size) //filter out of image pixels
-//     {
-//         if (!(j < patchLimit && m < -j) && !(j >= size - patchLimit && m >= size - j))
-//             result = image[imageIterator];
-//     }
-//     return result;
-// }
-
-// __global__ void distanceSquaredCuda(int size, float *x, float *y, float *z)
-// {
-//     int i = blockIdx.x * blockDim.x + threadIdx.x;
-//     if (i < size)
-//         z[i] = (x[i] - y[i]) * (x[i] - y[i]);
-// }
-
-// __global__ void gaussianDistanceCuda(int size, float *distances, float *gaussianWeights, int patchSize, float *x)
-// {
-//     int i = blockIdx.x * blockDim.x + threadIdx.x;
-//     if (i < size)
-//     {
-//         int patchLimit = (patchSize - 1) / 2;
-//         int m = i % patchSize - patchLimit;
-//         int k = i / patchSize - patchLimit;
-//         int distance = m * m + k * k;
-//         x[i] *= gaussianWeights[distance];
-//     }
-// }
-
-// START OF CUDA FUNCTIONS **NOT** USING SHARED MEMORY //
 float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *image)
 {
     int totalPixels = size * size;
     int patchLimit = (patchSize - 1) / 2;
-    float *cudaPatches, *cudaGaussianWeights, *cudaDistances, *denoisedCuda, *imageCuda;
+    float *cudaPatches, *cudaGaussianWeights, *cudaDistances, *cudaDenoised, *cudaImage;
 
     cudaMalloc(&cudaPatches, totalPixels * patchSize * patchSize * sizeof(float));
     cudaMalloc(&cudaDistances, totalPixels * sizeof(float));
-    cudaMalloc(&cudaGaussianWeights, (patchSize + patchLimit) * sizeof(float)); //alocate memory for the arrays
-    cudaMalloc(&denoisedCuda, totalPixels * sizeof(float));
-    cudaMalloc(&imageCuda, totalPixels * sizeof(float));
+    cudaMalloc(&cudaGaussianWeights, (2*patchLimit*patchLimit+1) * sizeof(float)); //alocate memory for the arrays
+    cudaMalloc(&cudaDenoised, totalPixels * sizeof(float));
+    cudaMalloc(&cudaImage, totalPixels * sizeof(float));
 
-    cudaMemcpy(cudaGaussianWeights, gaussianWeights, (patchSize + patchLimit) * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(cudaGaussianWeights, gaussianWeights, (2*patchLimit*patchLimit+1) * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(cudaPatches, patches, totalPixels * patchSize * patchSize * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(imageCuda, image, totalPixels * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(cudaImage, image, totalPixels * sizeof(float), cudaMemcpyHostToDevice);
 
-    // UNIFY THESE //
-
-    // findPatchDistances<<<size, size>>>(cudaPatches, size, patchSize, cudaGaussianWeights, cudaDistances, sigmaDist);
-    // cudaDeviceSynchronize(); //ensure that cudaPatches is fully calculated
-
-    // normalizeDistances<<<size, size>>>(cudaDistances, size);
-    // cudaDeviceSynchronize();
-
-    // calculateDenoisedImage<<<size, size>>>(denoisedCuda, cudaDistances, imageCuda, size);
-    // cudaDeviceSynchronize(); //ensure that denoisedCuda is properly calculated
-
-    //            //
-    printf("Dist size is %ld bytes or %f Kbytes",totalPixels*sizeof(float),(float)(totalPixels*sizeof(float)/1024));
-    denoiseKernel<<<size, size, totalPixels*sizeof(float)>>>(cudaPatches, size, patchSize, cudaGaussianWeights, sigmaDist, denoisedCuda, imageCuda);
-    cudaDeviceSynchronize();
-
-    cudaError_t cudaerr = cudaDeviceSynchronize();
-    if (cudaerr != cudaSuccess)
-        printf("kernel launch failed with error \"%s\".\n",cudaGetErrorString(cudaerr));
-
+    denoiseKernel<<<size, size, MAX_SHARED_SIZE>>>(cudaPatches, size, patchSize, cudaGaussianWeights, sigmaDist, cudaDenoised, cudaImage, cudaDistances);
     float *denoised = (float *)malloc(totalPixels * sizeof(float));
-    cudaMemcpy(denoised, denoisedCuda, (totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
+    cudaMemcpy(denoised, cudaDenoised, (totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
 
     cudaFree(cudaPatches);
     cudaFree(cudaDistances);
     cudaFree(cudaGaussianWeights);
-    cudaFree(denoisedCuda);
-    cudaFree(imageCuda);
+    cudaFree(cudaDenoised);
+    cudaFree(cudaImage);
+
+    cudaError_t cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess)
+        printf("Kernel launch failed with error \"%s\".\n", cudaGetErrorString(cudaerr));
 
     return denoised;
 }
 
-// __global__ void findPatchDistances(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist)
-// {
-
-//     int col = threadIdx.x; //0.. size-1
-//     int row = blockIdx.x;  //0.. size-1
-//     int totalPixels = size * size;
-//     //Each thread goes to a single row and column and calculates the distances.
-//     //For example,  in the block with blockIdx.x = 50, all the threads find the distances
-//     //of each pixel in the image with each pixel of the 50th row
-//     for (int i = row * size; i < (row + 1) * size; i++)
-//     {
-//         for (int j = col * size; j < (col + 1) * size; j++)
-//         {
-//             float dist = patchDistance(i, j, patchSize, patches, gaussianWeights);
-//             distances[i * totalPixels + j] = exp(-dist / (sigmaDist * sigmaDist));
-//         }
-//     }
-// }
-
-// __global__ void normalizeDistances(float *distances, int size)
-// {
-//     int totalPixels = size * size;
-//     float normalFactor = 0;
-//     int i = threadIdx.x + blockIdx.x * blockDim.x;
-
-//     for (int j = 0; j < totalPixels; j++)
-//         normalFactor += distances[i * totalPixels + j]; //calculate factor to normalize distances ~ Z[i]
-
-//     for (int j = 0; j < totalPixels; j++)
-//         distances[i * totalPixels + j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
-//     //printf("%dth pixel normal factor %f\n", i, normalFactor);
-// }
-
-__global__ void denoiseKernel(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *denoisedImage, float *image)
+__global__ void denoiseKernel(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *denoisedImage, float *image, float *distances)
 {
-    extern __shared__ float distances[];
-    int col = threadIdx.x; //0.. size-1 -> 
-    int row = blockIdx.x;  //0.. size-1 -> Current row of the image
-    //int totalPixels = size * size;
+    int patchLimit = (patchSize - 1) / 2;
+    int gaussianSize = 2 * patchLimit * patchLimit + 1;
 
-    //int i = row * size + col;
-    //printf("i is %d \n",i);
-    printf("Lanched %d thread in %d block\n",threadIdx.x, blockIdx.x);
-    //go to each pixel of the row
-    for(int i=row*size ; i< (row+1)*size; i++){
+    extern __shared__ float shared[];
+    int col = threadIdx.x; //0.. size-1 
+    int row = blockIdx.x;  //0.. size-1 
+    int pixel = row * size + col;
+    float pixelValue=0;
+    //printf("launched %d block and %d thread\n", blockIdx.x, threadIdx.x);
+    float *gaussianWeightsShared=shared;
+    // float *patchRowShared=(float *)&gaussianWeightsShared[gaussianSize];
+    // for(int i=0; i< totalPatchSize * size; i++)
+    //     patchRowShared[i]=patches[i];
+    
 
+    for(int g = 0; g < gaussianSize; g++)
+        gaussianWeightsShared[g]=gaussianWeights[g];   //load gaussian weights array to shared memory
+
+    float dist,normalFactor = 0.0;
+    //float dist =  patchDistanceShared( patchSize, patchShared, &patches[(pixel) * totalPatchSize], gaussianWeightsShared );
+    
     //go to each pixel of the image
-    //j represents current row
-    for(int j=0; j<size; j++){
-    float dist = patchDistance(i, j*size+col, patchSize, patches, gaussianWeights);
-    distances[j*size+col]  = exp(-dist / (sigmaDist * sigmaDist));
-    //printf("i is %d, j*size+col is %d, dist is %f, j is %d, col is %d, size is %d\n", i, j*size+col, distances[j*size+col],j,col, size);
-    }
-    __syncthreads();
-    float normalFactor = 0;
-    for (int j = 0; j < size*size; j++){
+    //each thread on the same block is on the same j, so all the threads access the same row of the image 
+    for (int j = 0; j < size * size; j++){
 
-        normalFactor += distances[j]; //calculate factor to normalize distances ~ Z[i]
-        //printf ("%d thread: dist is %f\n",threadIdx.x,distances[j]);
+        //printf("%d thread with j %d and block %d\n", threadIdx.x, j, blockIdx.x);
+        dist =  patchDistance( pixel, j, patchSize, patches, gaussianWeightsShared );
+        dist = exp(-dist / (sigmaDist * sigmaDist));
+        pixelValue += dist * image[j];
+        normalFactor += dist;
     }
-    // if(col==0)
-    // printf("%dth pixel normal factor %f\n", i, normalFactor);
-    
-    for (int j = 0; j < size; j++)
-        distances[j*size+col] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
-    
-    __syncthreads();
 
-    if(threadIdx.x==0){
-    denoisedImage[i] = 0;
-    for (int j = 0; j < size*size; j++)
-        denoisedImage[i] += distances[j] * image[j];
-    }
-}
+    denoisedImage[pixel] = pixelValue/normalFactor;//distances now represents the weight factor for each pixel ~ w(i,j)
+    
 }
 
 __device__ float patchDistance(int i, int j, int patchSize, float *patches, float *gaussianWeights)
@@ -377,112 +285,22 @@ __device__ float patchDistance(int i, int j, int patchSize, float *patches, floa
     return sum;
 }
 
-// __global__ void calculateDenoisedImage(float *denoisedImage, float *distances, float *image, int size)
-// {
-//     int totalPixels = size * size;
-//     int i = threadIdx.x + blockIdx.x * blockDim.x;
-//     denoisedImage[i] = 0;
-//     for (int j = 0; j < totalPixels; j++)
-//         denoisedImage[i] += distances[i * totalPixels + j] * image[j];
-// }
-
-// END OF CUDA FUNCTIONS **NOT** USING SHARED MEMORY //
-
-// START OF CUDA FUNCTIONS USING SHARED MEMORY //
-
-// float *denoiseShared(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *image)
-// {
-//     int totalPixels = size * size;
-//     int patchLimit = (patchSize - 1) / 2;
-//     float *cudaPatches, *cudaGaussianWeights, *cudaDistances, *denoisedCuda, *imageCuda;
-
-//     cudaMalloc(&cudaPatches, totalPixels * patchSize * patchSize * sizeof(float));
-//     cudaMalloc(&cudaDistances, totalPixels * totalPixels * sizeof(float));
-//     cudaMalloc(&cudaGaussianWeights, (patchSize + patchLimit) * sizeof(float)); //alocate memory for the arrays
-//     cudaMalloc(&denoisedCuda, totalPixels * sizeof(float));
-//     cudaMalloc(&imageCuda, totalPixels * sizeof(float));
-
-//     cudaMemcpy(cudaGaussianWeights, gaussianWeights, (patchSize + patchLimit) * sizeof(float), cudaMemcpyHostToDevice);
-//     cudaMemcpy(cudaPatches, patches, totalPixels * patchSize * patchSize * sizeof(float), cudaMemcpyHostToDevice);
-//     cudaMemcpy(imageCuda, image, totalPixels * sizeof(float), cudaMemcpyHostToDevice);
-
-//     findPatchDistancesShared<<<size, size>>>(cudaPatches, size, patchSize, cudaGaussianWeights, cudaDistances, sigmaDist);
-//     cudaDeviceSynchronize(); //ensure that cudaPatches is fully calculated
-
-//     normalizeDistancesShared<<<size, size>>>(cudaDistances, size);
-//     cudaDeviceSynchronize();
-
-//     calculateDenoisedImageShared<<<size, size>>>(denoisedCuda, cudaDistances, imageCuda, size);
-//     cudaDeviceSynchronize(); //ensure that denoisedCuda is properly calculated
-
-//     float *denoised = (float *)malloc(totalPixels * sizeof(float));
-//     cudaMemcpy(denoised, denoisedCuda, (totalPixels * sizeof(float)), cudaMemcpyDeviceToHost);
-
-//     cudaFree(cudaPatches);
-//     cudaFree(cudaDistances);
-//     cudaFree(cudaGaussianWeights);
-//     cudaFree(denoisedCuda);
-//     cudaFree(imageCuda);
-
-//     return denoised;
-// }
-
-// __global__ void findPatchDistancesShared(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist)
-// {
-
-//     int col = threadIdx.x; //0.. size-1
-//     int row = blockIdx.x;  //0.. size-1
-//     int patchLimit = (patchSize - 1) / 2;
-//     int totalPixels = size * size;
-//     int totalPatchSize = patchSize * patchSize;
-//     if (col == 0)
-//         printf("%d \n", row);
-//     //Each thread goes to a single row and column and calculates the distances.
-//     //For example,  in the block with blockIdx.x = 50, all the threads find the distances
-//     //of each pixel in the image with each pixel of the 50th row
-//     for (int i = row * size; i < (row + 1) * size; i++)
-//     {
-//         for (int j = col * size; j < (col + 1) * size; j++)
-//         {
-//             float sum = 0;
-//             for (int k = -patchLimit; k <= patchLimit; k++)
-//             {
-//                 for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of patch(i) and patch(j)
-//                 {
-//                     int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
-//                     if (patches[i * totalPatchSize + patchIterator] != -1 && patches[j * totalPatchSize + patchIterator] != -1) //this means out of bounds
-//                     {
-//                         int distance = m * m + k * k;
-//                         sum += (patches[i * totalPatchSize + patchIterator] - patches[j * totalPatchSize + patchIterator]) *
-//                                (patches[i * totalPatchSize + patchIterator] - patches[j * totalPatchSize + patchIterator]) * gaussianWeights[distance];
-//                     }
-//                 }
-//             }
-//             distances[i * totalPixels + j] = exp(-sum / (sigmaDist * sigmaDist));
-//         }
-//     }
-// }
-
-// __global__ void normalizeDistancesShared(float *distances, int size)
-// {
-//     int totalPixels = size * size;
-//     float normalFactor = 0;
-//     int i = threadIdx.x + blockIdx.x * blockDim.x;
-
-//     for (int j = 0; j < totalPixels; j++)
-//         normalFactor += distances[i * totalPixels + j]; //calculate factor to normalize distances ~ Z[i]
-
-//     for (int j = 0; j < totalPixels; j++)
-//         distances[i * totalPixels + j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
-//     //printf("%dth pixel normal factor %f\n", i, normalFactor);
-// }
-
-// __global__ void calculateDenoisedImageShared(float *denoisedImage, float *distances, float *image, int size)
-// {
-//     int totalPixels = size * size;
-//     int i = threadIdx.x + blockIdx.x * blockDim.x;
-//     denoisedImage[i] = 0;
-//     for (int j = 0; j < totalPixels; j++)
-//         denoisedImage[i] += distances[i * totalPixels + j] * image[j];
-// }
-// END OF CUDA FUNCTIONS  USING SHARED MEMORY //
+__device__ float patchDistanceShared(int patchSize, float *patchShared, float *patch, float *gaussianWeightsShared)
+{
+    float sum = 0;
+    int patchLimit = (patchSize - 1) / 2;
+    for (int k = -patchLimit; k <= patchLimit; k++)
+    {
+        for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of patch(i) and patch(j)
+        {
+            int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
+            if (patchShared[patchIterator] != -1 && patch[patchIterator] != -1) //this means out of bounds
+            {
+                int distance = m * m + k * k;
+                sum += (patchShared[patchIterator] - patch[patchIterator]) *
+                       (patchShared[patchIterator] - patch[patchIterator]) * gaussianWeightsShared[distance];
+            }
+        }
+    }
+    return sum;
+}
