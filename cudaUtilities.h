@@ -1,31 +1,16 @@
 #ifndef CUDAUTILITIES_H
 #define CUDAUTILITIES_H
 
-__device__ float getPatchElement(float *image, int size, int pixel, int position, int patchSize);
-
-__global__ void distanceSquaredCuda(int size, float *x, float *y, float * z);
-
-__global__ void gaussianDistanceCuda(int size, float *distances, float *gaussianWeights, int patchSize, float *x);
-
-float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, float * gaussianWeights);
-
 float *createPatchesRowMajor(float *image, int size, int patchSize);
 
 float *denoise(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float* image);
 
-__global__ void findPatchDistances(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist);
+__global__ void denoiseKernel(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *denoisedImage, float *image, float *distances);
 
-__global__ void normalizeDistances(float *distances, int size);
+__device__ float patchDistance(int i, int j,int patchSize, float *patches, float *gaussianWeights );
 
-__global__ void calculateDenoisedImage(float *denoised, float *distances, float *image, int size);
+__global__ void denoiseKernelShared(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float *denoisedImage, float *image, float *distances);
 
-float *denoiseShared(float *patches, int size, int patchSize, float *gaussianWeights, float sigmaDist, float* image);
-
-__global__ void findPatchDistancesShared(float *patches, int size, int patchSize, float *gaussianWeights, float *distances, float sigmaDist);
-
-__global__ void normalizeDistancesShared(float *distances, int size);
-
-__global__ void calculateDenoisedImageShared(float *denoised, float *distances, float *image, int size);
-
+__device__ float patchDistanceSingle(int patchSize, float *patch1, float *patch2, float *gaussianWeightsShared);
 
 #endif
