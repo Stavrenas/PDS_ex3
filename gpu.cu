@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     float sigmaGauss = 1.66;
     if(argc==1){
     patchSize = 7;
-    sprintf(name, "%s", "image3");
+    sprintf(name, "%s", "image1");
     }
     else if(argc==3){
     patchSize=atoi(argv[1]);
@@ -50,7 +50,6 @@ int main(int argc, char *argv[])
 
     struct timeval tStart;
     tStart = tic();
-
     float *denoised = denoiseImageCuda(noisy, size, patchSize, sigmaDist, sigmaGauss); //remove noise from the image//
     char *denoisedName = (char *)malloc(20 * sizeof(char));
     sprintf(denoisedName, "%s_denoisedCUDA", name);
