@@ -3,7 +3,7 @@
 #include <math.h> // sqrt, M_PI
 #include <stdbool.h>
 #include <time.h>
-#include <sys/time.h>
+#include <sys/time.h> //gettimeofday
 #include <string.h>
 #include "utilities.h"
 
@@ -126,32 +126,32 @@ float *addNoiseToImage(float *image, int size)
 
 float **createPatches(float *image, int size, int patchSize)
 {
-    //We assume that patchSize is an odd number
-    //In order to create the patches we must consider that the pixels are stored in Row-Major format
-    //A simple aproach is to handle the patches also in the same format
+    //We assume that patchSize is an odd number//
+    //In order to create the patches we must consider that the pixels are stored in Row-Major format//
+    //A simple aproach is to handle the patches also in the same format//
     int patchLimit = (patchSize - 1) / 2;
     int patchIterator, imageIterator;
     float **patches = (float **)malloc(size * size * sizeof(float *));
 
     for (int i = 0; i < size; i++)
     {
-        for (int j = 0; j < size; j++) //go to each pixel of the image
+        for (int j = 0; j < size; j++) //go to each pixel of the image//
         {
-            float *patch = (float *)malloc(patchSize * patchSize * sizeof(float)); //We assume that (i,j) is the pixel on the centre
+            float *patch = (float *)malloc(patchSize * patchSize * sizeof(float)); //We assume that (i,j) is the pixel on the centre//
             for (int k = -patchLimit; k <= patchLimit; k++)
             {
-                for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
+                for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j//
                 {
                     patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
                     imageIterator = (i + k) * size + (j + m);
                     patch[patchIterator] = -1;
 
-                    if (imageIterator >= 0 && imageIterator < size * size) //filter out of image pixels
+                    if (imageIterator >= 0 && imageIterator < size * size) //filter out of image pixels//
                     {
 
                         if (!(j < patchLimit && m < -j) && !(j >= size - patchLimit && m >= size - j))
-                            //!(j  < patchLimit && m +  < 0) filters pixels that are on the left side of the patch
-                            //!(j  >= size - patchLimit && m  >=size - j ) filters pixels that are on the right side of the patch
+                            //!(j  < patchLimit && m +  j < 0) filters pixels that are on the left side of the patch//
+                            //!(j  >= size - patchLimit && m - size + j >= 0 ) filters pixels that are on the right side of the patch//
                             patch[patchIterator] = image[imageIterator];
                     }
                 }
@@ -169,18 +169,16 @@ float calculateGaussianDistance(float *patch1, float *patch2, int patchSize, flo
 
     for (int k = -patchLimit; k <= patchLimit; k++)
     {
-        for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j
+        for (int m = -patchLimit; m <= patchLimit; m++) //go to each pixel of the patch: i*size +j//
         {
             int patchIterator = (k + patchLimit) * patchSize + (m + patchLimit);
-            if (patch1[patchIterator] != -1 && patch2[patchIterator] != -1) //this means out of bounds
+            if (patch1[patchIterator] != -1 && patch2[patchIterator] != -1) //this means out of bounds//
             {
-                int distance = m * m + k * k; //distance from centre pixel
+                int distance = m * m + k * k; //distance from centre pixel//
                 sum += (patch1[patchIterator] - patch2[patchIterator]) * (patch1[patchIterator] - patch2[patchIterator]) * gaussianWeights[distance];
             }
         }
     }
-    // if(sum<0)
-    // printf("sum is %f \n",sum);
     return sum;
 }
 
@@ -204,31 +202,31 @@ float *denoiseImage(float *image, int size, int patchSize, float sigmaDist, floa
 {
     int totalPixels = size * size;
     int patchLimit = (patchSize - 1) / 2;
-    int gaussianSize=2*patchLimit*patchLimit+1;
+    int gaussianSize = 2 * patchLimit * patchLimit + 1;
     float **patches, *gaussianWeights;
 
-    patches = createPatches(image, size, patchSize); //patch creation
+    patches = createPatches(image, size, patchSize); //patch creation//
 
     gaussianWeights = (float *)malloc((gaussianSize) * sizeof(float));
 
     for (int i = 0; i < gaussianSize; i++)
-        gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights
+        gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights//
 
     float *denoisedImage = (float *)malloc(totalPixels * sizeof(float));
 
-    for (int i = 0; i < totalPixels; i++) //go to each pixel
+    for (int i = 0; i < totalPixels; i++) //go to each pixel//
     {
         float *distances = (float *)malloc(totalPixels * sizeof(float));
         float normalFactor = 0;
         for (int j = 0; j < totalPixels; j++)
         {
-            float dist = calculateGaussianDistance(patches[i], patches[j], patchSize, gaussianWeights); //calculate distances from each patch with gaussian weights
+            float dist = calculateGaussianDistance(patches[i], patches[j], patchSize, gaussianWeights); //calculate distances from each patch with gaussian weights//
             distances[j] = exp(-dist / (sigmaDist * sigmaDist));
-            normalFactor += distances[j]; //calculate factor to normalize distances ~ Z[i]
+            normalFactor += distances[j]; //calculate factor to normalize distances ~ Z[i]//
         }
 
         for (int j = 0; j < totalPixels; j++)
-            distances[j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)
+            distances[j] /= normalFactor; //distances represents the weight factor for each pixel ~ w(i,j)//
 
         denoisedImage[i] = 0;
         for (int j = 0; j < totalPixels; j++)
