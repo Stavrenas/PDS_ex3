@@ -7,7 +7,7 @@
 #include "cudaUtilities.h"
 #include "utilities.h"
 #include <time.h>
-#include <sys/time.h>
+#include <sys/time.h> //gettimeofday
 
 float *denoiseImageCuda(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss);
 
@@ -19,21 +19,24 @@ int main(int argc, char *argv[])
     char *file = (char *)malloc(20 * sizeof(char));
     char *name = (char *)malloc(20 * sizeof(char));
     int patchSize;
-    float sigmaDist = 0.05; 
+    float sigmaDist = 0.05;
     float sigmaGauss = 1.66;
-    if(argc==1){
-    patchSize = 7;
-    sprintf(name, "%s", "image1");
+    if (argc == 1)
+    {
+        patchSize = 7;
+        sprintf(name, "%s", "image1");
     }
-    else if(argc==3){
-    patchSize=atoi(argv[1]);
-    sprintf(name, "%s", argv[2]);
+    else if (argc == 3)
+    {
+        patchSize = atoi(argv[1]);
+        sprintf(name, "%s", argv[2]);
     }
-    else{
+    else
+    {
         printf("Command line arguements are: PatchSize, name.\n");
         return -1;
     }
-    
+
     sprintf(file, "%s.csv", name);
     int *image = readCSV(&size, file);
     printf("Image dimensions are %dx%d\n", size, size);
@@ -55,9 +58,9 @@ int main(int argc, char *argv[])
     sprintf(denoisedName, "%s_denoisedCUDA", name);
     writeToCSV(denoised, size, denoisedName);
 
-    printf("%dx%d image with patch size = %d denoised with Cuda in %.6f sec.\n",size, size, patchSize, toc(tStart));
+    printf("%dx%d image with patch size = %d denoised with Cuda in %.6f sec.\n", size, size, patchSize, toc(tStart));
 
-    float *removed = findRemoved(noisy, denoised, size); //find difference from original//
+    float *removed = findRemoved(noisy, denoised, size); //find difference from initial image//
     char *removedName = (char *)malloc(20 * sizeof(char));
     sprintf(removedName, "%s_removedCUDA", name);
     writeToCSV(removed, size, removedName);
@@ -66,12 +69,12 @@ int main(int argc, char *argv[])
 float *denoiseImageCuda(float *image, int size, int patchSize, float sigmaDist, float sigmaGauss)
 {
     int patchLimit = (patchSize - 1) / 2;
-    float *patches , *denoisedImage, *gaussianWeights; 
+    float *patches, *denoisedImage, *gaussianWeights;
 
-    gaussianWeights = (float *)malloc((2*patchLimit*patchLimit+1) * sizeof(float));
-    for (int i = 0; i <= 2*patchLimit*patchLimit; i++)
-        gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i)); //calculate all the necessary gaussian weights
-    patches = createPatchesRowMajor(image, size, patchSize); //patch creation
+    gaussianWeights = (float *)malloc((2 * patchLimit * patchLimit + 1) * sizeof(float));
+    for (int i = 0; i <= 2 * patchLimit * patchLimit; i++)
+        gaussianWeights[i] = gaussian(sigmaGauss, sqrt(i));  //calculate all the necessary gaussian weights//
+    patches = createPatchesRowMajor(image, size, patchSize); //patch creation//
     denoisedImage = denoise(patches, size, patchSize, gaussianWeights, sigmaDist, image);
 
     printf("Finished denoising \n");
