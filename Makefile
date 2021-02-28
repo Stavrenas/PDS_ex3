@@ -7,8 +7,5 @@ all: cpu
 cpu: cpu.c utilities.c
 	$(CC) -o $@ $^ $(CFLAGS)
 
-test: test.c utilities.c
-	$(CC) -o $@ $^ $(CFLAGS)
-
 gpu: gpu.cu cudaUtilities.cu 
 	$(NVCC) $^ -o $@  
