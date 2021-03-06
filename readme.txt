@@ -6,8 +6,8 @@ make gpu
 
 
 Both implementations have the following input arguements;
-1) an integer corresponding to the patch size 
-2) the name of the image file in csv format,  wihtout the ".csv" extension
+1) an integer corresponding to the patch size .
+2) the name of the image file in csv format,  wihtout the ".csv" extension.
 
 For example , if an image is stored in house.csv file, for a patch size of 5 we do; ./gpu 5 house
 
