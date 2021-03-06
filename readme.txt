@@ -1,7 +1,7 @@
 Code usage;
 
 First , make sure to;
-make gpu
+make cpu
 make gpu
 
 
