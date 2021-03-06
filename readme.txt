@@ -11,7 +11,7 @@ Both implementations have the following input arguements;
 
 For example , if an image is stored in house.csv file, for a patch size of 5 we do; ./gpu 5 house
 
-After completion, the files house_normal.csv, house_noisy.csv, house_denoised.csv and house_removed.csv 
+After completion, the files house_normal.csv, house_noisy.csv, house_denoised.csv and house_removed.csv are created
 
 hose_normal.csv is the normalized image, meaning the maximum pixel value is 1
 house_noisy.csv is the same image with gaussian noise implemented
